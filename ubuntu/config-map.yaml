@@ -1,0 +1,94 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: start_up_script
+  labels:
+    app: start_up_script
+data:
+  install.sh: |
+    # Apply this config only on the primary.
+    export SBT_VERSION=1.2.8
+    export SCALA_VERSION=2.11.8
+    export SPARK_VERSION=2.4.5
+    export HADOOP_VERSION=2.7
+    export SPARK_HOME=/opt/spark
+    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
+    apt-get update && apt -y install git curl openjdk-8-jdk scala iputils-ping\
+    curl -sL "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz" | gunzip | tar -x -C /usr/local && \
+    ln -s /usr/local/sbt/bin/sbt /usr/local/bin/sbt && \
+    chmod 0755 /usr/local/bin/sbt && \
+    mkdir -p /opt/spark && \
+    mkdir -p /opt/sparkjobserver && \
+    curl -L -o /opt/spark.tgz http://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz && \
+    tar -xvzf /opt/spark.tgz -C /opt/spark --strip-components 1 && \
+    git clone https://github.com/spark-jobserver/spark-jobserver.git && \
+    cd spark-jobserver && SPARK_VERSION=2.4.4 sbt job-server-extras/assembly
+  jobserver_mysql.comf: |
+      spark {
+        jobserver {
+          daorootdir = "/tmp/spark-jobserver"
+          binarydao {
+              class = spark.jobserver.io.BinarySqlDAO
+          }
+          metadatadao {
+              class = spark.jobserver.io.MetaDataSqlDAO
+          }
+          sqldao {
+            # Slick database driver, full classpath
+            slick-driver = slick.jdbc.MySQLProfile
+
+            # JDBC driver, full classpath
+            jdbc-driver = com.mysql.jdbc.Driver
+
+            jdbc {
+              url = "jdbc:mysql://db_host/spark_jobserver"
+              user = "jobserver"
+              password = "secret"
+            }
+
+            dbcp {
+              maxactive = 20
+              maxidle = 10
+              initialsize = 10
+            }
+          }
+        }
+      }
+
+      # also add the following line at the root level.
+      flyway.locations="db/mysql/migration"
+  jobserver_postgresql.comf: |
+      spark {
+        jobserver {
+            daorootdir = "/tmp/spark-jobserver"
+            binarydao {
+                class = spark.jobserver.io.BinarySqlDAO
+            }
+            metadatadao {
+                class = spark.jobserver.io.MetaDataSqlDAO
+            }
+            sqldao {
+                  # Slick database driver, full classpath
+                  slick-driver = slick.jdbc.PostgresProfile
+
+                  # JDBC driver, full classpath
+                  jdbc-driver = org.postgresql.Driver
+
+                  jdbc {
+                    url = "jdbc:postgresql://db_host/spark_jobserver"
+                    user = "jobserver"
+                    password = "secret"
+                  }
+
+                  dbcp {
+                    maxactive = 20
+                    maxidle = 10
+                    initialsize = 10
+                  }
+             }
+        }
+      }
+
+      flyway.locations="db/postgresql/migration"
