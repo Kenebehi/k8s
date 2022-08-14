@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sjs
+  labels:
+    name: sjs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sjs
+  template:
+    metadata:
+      labels:
+        app: sjs
+    spec:
+      containers:
+      - name: sjs
+        image: kodumah/spark-master-sjs-2.4.4
+        env:
+        - name: JAVA_HOME
+          value: "/usr/lib/jvm/java-1.11.0-openjdk-amd64"
+        - name: SPARK_HOME
+          value: "/opt/spark"
+        - name: SPARK_JOBSERVER_MEMORY
+          value: "1G"
+        - name: LOGGING_OPTS
+          value: "-Dlog4j.configuration=file:/opt/sparkjobserver/config/log4j.properties"
+        - name: MANAGER_JAR_FILE
+          value: "/opt/sparkjobserver/bin/spark-job-server.jar"
+        - name: MANAGER_CONF_FILE
+          value: "/opt/sparkjobserver/config/jobserver.conf"
+        - name: APP_USER
+          value: "root"
+        - name: APP_GROUP
+          value: "root"
+        - name: PIDFILE
+          value: "spark-jobserver.pid"
+        - name: SPARK_CONF_DIR
+          value: "/opt/spark/conf"
+        - name: SCALA_VERSION
+          value: "2.11.12"
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sjs
+  labels:
+    service: sjs
+spec:
+  selector:
+    app: sjs
+  ports:
+  - port: 8090 # port being used by the container
+    targetPort: 8090 # This targets port 5000 on any Pod with the app: flask label.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minikube-ingress
+  annotations:
+spec:
+  rules:
+  - host: jobserver
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sjs
+            port:
+              number: 8090
+

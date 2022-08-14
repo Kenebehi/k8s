@@ -8,8 +8,6 @@ metadata:
   labels:
     app.kubernetes.io/name: spark
     app.kubernetes.io/instance: eureka
-
-  annotations:
 automountServiceAccountToken: true
 ---
 # Source: spark/templates/headless-svc.yaml
@@ -81,46 +79,19 @@ spec:
         app.kubernetes.io/instance: eureka
         app.kubernetes.io/component: master
     spec:
-      
       serviceAccountName: eureka-spark
-      affinity:
-        podAffinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: spark
-                    app.kubernetes.io/instance: eureka
-                    app.kubernetes.io/component: master
-                namespaces:
-                  - "default"
-                topologyKey: kubernetes.io/hostname
-              weight: 1
-        nodeAffinity:
-      securityContext:
-        fsGroup: 1001
-        runAsGroup: 0
-        runAsUser: 1001
-        seLinuxOptions: {}
       containers:
         - name: spark-master
-          image: kodumah/spark-master-2.4.0
+          image: mjhea0/spark-hadoop:3.2.0
+          command: ["/spark-master"]
           imagePullPolicy: "IfNotPresent"
-          securityContext:
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 1001
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
             - name: cluster
               containerPort: 7077
-          volumeMounts:
           env:
-            - name: BITNAMI_DEBUG
-              value: "false"
             - name: SPARK_MODE
               value: "master"
             - name: SPARK_DAEMON_MEMORY
@@ -129,7 +100,6 @@ spec:
               value: "7077"
             - name: SPARK_MASTER_WEBUI_PORT
               value: "8080"
-          envFrom:
           livenessProbe:
             failureThreshold: 6
             initialDelaySeconds: 180
@@ -151,7 +121,6 @@ spec:
           resources:
             limits: {}
             requests: {}
-      volumes:
 ---
 # Source: spark/templates/statefulset-worker.yaml
 apiVersion: apps/v1
@@ -181,41 +150,16 @@ spec:
         app.kubernetes.io/instance: eureka
         app.kubernetes.io/component: worker
     spec:
-      
       serviceAccountName: eureka-spark
-      affinity:
-        podAffinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: spark
-                    app.kubernetes.io/instance: eureka
-                    app.kubernetes.io/component: worker
-                namespaces:
-                  - "default"
-                topologyKey: kubernetes.io/hostname
-              weight: 1
-        nodeAffinity:  
-      securityContext:
-        fsGroup: 1001
-        runAsGroup: 0
-        runAsUser: 1001
-        seLinuxOptions: {}
       containers:
         - name: spark-worker
-          image: kodumah/spark-worker-2.4.0
+          image: mjhea0/spark-hadoop:3.2.0
+          command: ["/spark-worker"]
           imagePullPolicy: "IfNotPresent"
-          securityContext:
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 1001
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
-          volumeMounts:
           env:
             - name: SPARK_MODE
               value: "worker"
@@ -234,8 +178,7 @@ spec:
               value: spark://eureka-spark-master-svc:7077
             # If you use a custom properties file, it must be loaded using a ConfigMap
             - name: SPARK_WORKER_OPTS
-              value: 
-          envFrom:
+              value: ""
           livenessProbe:
             failureThreshold: 6
             initialDelaySeconds: 180
@@ -266,4 +209,3 @@ spec:
           resources:
             limits: {}
             requests: {}
-      volumes:

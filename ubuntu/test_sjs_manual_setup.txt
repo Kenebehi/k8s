@@ -1,0 +1,27 @@
+#install Java
+export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
+export SBT_VERSION=1.6.1
+export SPARK_HOME=
+export SPARK_VERSION=2.4.4
+export HADOOP_VERSION=2.7
+
+
+
+apt install default-jre -y
+apt install default-jdk -y
+apt install git -y
+
+curl -sL "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz" | gunzip | tar -x -C /usr/local && \
+    ln -s /usr/local/sbt/bin/sbt /usr/local/bin/sbt && \
+    chmod 0755 /usr/local/bin/sbt
+
+mkdir /tmp/spark
+
+# Install spark
+curl -L -o /tmp/spark.tgz http://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz && \
+    tar -xvzf /tmp/spark.tgz -C /tmp/spark --strip-components 1
+
+git clone https://github.com/spark-jobserver/spark-jobserver.git && cd spark-jobserver.git
+
+echo "Building job server for spark 2.4.4 SPARK_VERSION=2.4.4..." && SPARK_VERSION=2.4.4 sbt clean job-server-extras/assembly
+
