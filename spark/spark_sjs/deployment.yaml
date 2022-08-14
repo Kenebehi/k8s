@@ -1,0 +1,80 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: spark-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: spark-worker
+  template:
+    metadata:
+      labels:
+        component: spark-worker
+    spec:
+      containers:
+        - name: spark-worker
+          image: kodumah/spark-master-sjs-2.4.4
+          ports:
+            - containerPort: 8081
+          resources:
+            requests:
+              cpu: 100m
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: spark-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: spark-master
+  template:
+    metadata:
+      labels:
+        component: spark-master
+    spec:
+      containers:
+        - name: spark-master
+          image: kodumah/spark-master-sjs-2.4.4
+          ports:
+            - containerPort: 7077
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: spark-master
+spec:
+  ports:
+    - name: webui
+      port: 8080
+      targetPort: 8080
+    - name: spark
+      port: 7077
+      targetPort: 7077
+  selector:
+    component: spark-master
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spark-ingress
+  annotations:
+spec:
+  rules:
+  - host: spark-kubernetes
+    http:
+      paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: spark-master
+              port:
+                number: 8080

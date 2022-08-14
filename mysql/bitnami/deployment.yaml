@@ -110,7 +110,6 @@ spec:
       port: 3306
       protocol: TCP
       targetPort: mysql
-      nodePort: null
   selector: 
     app.kubernetes.io/name: mysql
     app.kubernetes.io/instance: my-release
@@ -128,7 +127,6 @@ metadata:
     app.kubernetes.io/component: primary
 spec:
   replicas: 1
-  podManagementPolicy: ""
   selector:
     matchLabels: 
       app.kubernetes.io/name: mysql
@@ -148,7 +146,6 @@ spec:
     spec:
       serviceAccountName: my-release-mysql
       affinity:
-        podAffinity: 
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:
@@ -160,10 +157,8 @@ spec:
                   - "default"
                 topologyKey: kubernetes.io/hostname
               weight: 1
-        nodeAffinity:
       securityContext:
         fsGroup: 1001
-      initContainers:
       containers:
         - name: mysql
           image: docker.io/bitnami/mysql:8.0.30-debian-11-r1
@@ -181,7 +176,6 @@ spec:
                   key: mysql-root-password
             - name: MYSQL_DATABASE
               value: "my_database"
-          envFrom:
           ports:
             - name: mysql
               containerPort: 3306
@@ -253,7 +247,6 @@ spec:
           app.kubernetes.io/name: mysql
           app.kubernetes.io/instance: my-release
           app.kubernetes.io/component: primary
-        annotations:
       spec:
         accessModes:
           - "ReadWriteOnce"

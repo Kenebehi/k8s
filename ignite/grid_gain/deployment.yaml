@@ -1,0 +1,152 @@
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: minikube-ingress
+# spec:
+#   rules:
+#   - host: ignite-kubernetes
+#     http:
+#       paths:
+#         - pathType: Prefix
+#           path: /
+#           backend:
+#             service:
+#               name: ignite-cluster
+#               port:
+#                 number: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # The name must be equal to TcpDiscoveryKubernetesIpFinder.serviceName
+  name: gridgridgaingain-service
+  # The name must be equal to TcpDiscoveryKubernetesIpFinder.namespace
+  namespace: default
+  labels:
+    app: gridgain
+spec:
+  type: LoadBalancer
+  ports:
+    - name: rest
+      port: 8080
+      targetPort: 8080
+    - name: thinclients
+      port: 10800
+      targetPort: 10800
+  selector:
+    # Must be equal to the label set for pods.
+    app: gridgain
+status:
+  loadBalancer: {}
+---
+# A cluster role is used to grant access to pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gridgain
+  namespace: default
+rules:
+- apiGroups:
+  - ""
+  resources: # Here are the resources you can access
+  - pods
+  - endpoints
+  verbs: # That is what you can do with them
+  - get
+  - list
+  - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gridgain
+roleRef:
+  kind: ClusterRole
+  name: gridgain
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: gridgain
+  namespace: default
+---
+# An example of a Kubernetes configuration for pod deployment.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  # Cluster name.
+  name: gridgain-cluster
+  namespace: default
+spec:
+  # The initial number of pods to be started by Kubernetes.
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gridgain
+  serviceName: gridgain
+  template:
+    metadata:
+      labels:
+        app: gridgain
+    spec:
+      serviceAccountName: gridgain
+      terminationGracePeriodSeconds: 60000
+      containers:
+        # Custom pod name.
+        - name: gridgain-node
+          image: gridgain/community:8.8.20
+      initContainers:
+        - name: volume-dirs-init-cntr
+          image: busybox:1.35
+          command:
+          - "/bin/mkdir"
+          args:
+          - "-p"
+          - "/opt/gridgain/work/db/marshaller"
+          env:
+            - name: OPTION_LIBS
+              value: ignite-kubernetes,ignite-rest-http
+            - name: CONFIG_URI
+              value: file:///opt/gridgain/config/node-configuration.xml
+            - name: JVM_OPTS
+              value: "-DIGNITE_WAIT_FOR_BACKUPS_ON_SHUTDOWN=true"
+          ports:
+            # Ports to open.
+            - containerPort: 47100 # communication SPI port
+            - containerPort: 47500 # discovery SPI port
+            - containerPort: 49112 # JMX port
+            - containerPort: 10800 # thin clients/JDBC driver port
+            - containerPort: 8080 # REST API
+          volumeMounts:
+            - mountPath: /opt/gridgain/config
+              name: config-vol
+            - mountPath: /opt/gridgain/work/db/binary_meta
+              name: internal-metadata-vol
+          # readinessProbe:
+          #   httpGet:
+          #     path: /ignite?cmd=probe
+          #     port: 8080
+          #   initialDelaySeconds: 5
+          #   failureThreshold: 3
+          #   periodSeconds: 10
+          #   timeoutSeconds: 10
+          # livenessProbe:
+          #   httpGet:
+          #     path: /ignite?cmd=version
+          #     port: 8080
+          #   initialDelaySeconds: 5
+          #   failureThreshold: 3
+          #   periodSeconds: 10
+          #   timeoutSeconds: 10
+      volumes:
+        - name: config-vol
+          configMap:
+            name: gridgain-config
+  volumeClaimTemplates:
+    - metadata:
+        name: internal-metadata-vol
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        #      storageClassName: "gridgain-persistence-storage-class"
+        resources:
+          requests:
+            storage: "1Gi" # make sure to provide enough space for your application data

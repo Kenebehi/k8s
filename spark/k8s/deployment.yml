@@ -129,29 +129,29 @@ spec:
               value: "7077"
             - name: SPARK_MASTER_WEBUI_PORT
               value: "8080"
-      #     envFrom:
-      #     livenessProbe:
-      #       failureThreshold: 6
-      #       initialDelaySeconds: 180
-      #       periodSeconds: 20
-      #       successThreshold: 1
-      #       timeoutSeconds: 5
-      #       httpGet:
-      #         path: /
-      #         port: 8080
-      #     readinessProbe:
-      #       failureThreshold: 6
-      #       initialDelaySeconds: 30
-      #       periodSeconds: 10
-      #       successThreshold: 1
-      #       timeoutSeconds: 5
-      #       httpGet:
-      #         path: /
-      #         port: 8080
-      #     resources:
-      #       limits: {}
-      #       requests: {}
-      # volumes:
+          envFrom:
+          livenessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          readinessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            limits: {}
+            requests: {}
+      volumes:
 ---
 # Source: spark/templates/statefulset-worker.yaml
 apiVersion: apps/v1
