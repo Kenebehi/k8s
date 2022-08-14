@@ -1,9 +1,12 @@
 # base image
-FROM openjdk:11
+FROM openjdk:8-jdk-alpine
 
 # define spark and hadoop versions
-ENV SPARK_VERSION=2.4.0
+ENV SPARK_VERSION=2.4.4
 ENV HADOOP_VERSION=2.7.0
+
+# Install dependencies
+RUN apk add --no-cache bash curl
 
 # download and install hadoop
 RUN mkdir -p /opt && \
@@ -22,6 +25,6 @@ RUN mkdir -p /opt && \
     echo Spark ${SPARK_VERSION} installed in /opt
 
 # add scripts and update spark default config
-ADD common.sh spark-master spark-worker /
+ADD common.sh spark-master.sh spark-worker.sh /
 ADD spark-defaults.conf /opt/spark/conf/spark-defaults.conf
 ENV PATH $PATH:/opt/spark/bin

@@ -1,0 +1,1 @@
+docker build -t kodumah/spark-2.4.4-hdoop-2.7.0 . && docker push kodumah/spark-2.4.4-hdoop-2.7.0

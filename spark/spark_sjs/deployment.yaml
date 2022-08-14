@@ -1,26 +1,27 @@
----
-kind: Deployment
-apiVersion: apps/v1
-metadata:
-  name: spark-worker
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      component: spark-worker
-  template:
-    metadata:
-      labels:
-        component: spark-worker
-    spec:
-      containers:
-        - name: spark-worker
-          image: kodumah/spark-master-sjs-2.4.4
-          ports:
-            - containerPort: 8081
-          resources:
-            requests:
-              cpu: 100m
+# ---
+# kind: Deployment
+# apiVersion: apps/v1
+# metadata:
+#   name: spark-worker
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       component: spark-worker
+#   template:
+#     metadata:
+#       labels:
+#         component: spark-worker
+#     spec:
+#       containers:
+#         - name: spark-worker
+#           image: 
+#           command: ["/spark-master"]
+#           ports:
+#             - containerPort: 8081
+#           resources:
+#             requests:
+#               cpu: 100m
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -38,7 +39,8 @@ spec:
     spec:
       containers:
         - name: spark-master
-          image: kodumah/spark-master-sjs-2.4.4
+          image: kodumah/spark-2.4.4-hdoop-2.7.0
+          # command: ["/spark-master.sh"]
           ports:
             - containerPort: 7077
             - containerPort: 8080
@@ -65,7 +67,6 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: spark-ingress
-  annotations:
 spec:
   rules:
   - host: spark-kubernetes
