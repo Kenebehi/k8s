@@ -1,0 +1,312 @@
+# NOTES:
+# CHART NAME: spark
+# CHART VERSION: 6.2.3
+# APP VERSION: 3.3.0
+
+# ** Please be patient while the chart is being deployed **
+
+# 1. Get the Spark master WebUI URL by running these commands:
+
+#   kubectl port-forward --namespace default svc/my-k8s-spark-master-svc 80:80
+#   echo "Visit http://127.0.0.1:80 to use your application"
+
+# 2. Submit an application to the cluster:
+
+#   To submit an application to the cluster the spark-submit script must be used. That script can be
+#   obtained at https://github.com/apache/spark/tree/master/bin. Also you can use kubectl run.
+
+#   export EXAMPLE_JAR=$(kubectl exec -ti --namespace default my-k8s-spark-worker-0 -- find examples/jars/ -name 'spark-example*\.jar' | tr -d '\r')
+
+#   kubectl exec -ti --namespace default my-k8s-spark-worker-0 -- spark-submit --master spark://my-k8s-spark-master-svc:7077 \
+#     --class org.apache.spark.examples.SparkPi \
+#     $EXAMPLE_JAR 5
+
+# ** IMPORTANT: When submit an application from outside the cluster service type should be set to the NodePort or LoadBalancer. **
+
+# ** IMPORTANT: When submit an application the --master parameter should be set to the service IP, if not, the application will not resolve the master. **
+
+---
+# Source: spark/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-k8s-spark
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: spark
+    
+    app.kubernetes.io/instance: my-k8s
+    
+  annotations:
+automountServiceAccountToken: true
+---
+# Source: spark/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-k8s-spark-secret
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: spark
+    
+    app.kubernetes.io/instance: my-k8s
+    
+type: Opaque
+data:
+---
+# Source: spark/templates/headless-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-k8s-spark-headless
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: spark
+    app.kubernetes.io/instance: my-k8s
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: spark
+    app.kubernetes.io/instance: my-k8s
+---
+# Source: spark/templates/svc-master.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-k8s-spark-master-svc
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: spark
+    app.kubernetes.io/instance: my-k8s
+    app.kubernetes.io/component: master
+  annotations:
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - port: 7077
+      targetPort: cluster
+      name: cluster
+      nodePort: null
+    - port: 80
+      targetPort: http
+      name: http
+      protocol: TCP
+      nodePort: null
+  selector:
+    app.kubernetes.io/name: spark
+    app.kubernetes.io/instance: my-k8s
+    app.kubernetes.io/component: master
+---
+# Source: spark/templates/statefulset-master.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-k8s-spark-master
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: spark
+    app.kubernetes.io/instance: my-k8s
+    app.kubernetes.io/component: master
+spec:
+  serviceName: my-k8s-spark-headless
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spark
+      app.kubernetes.io/instance: my-k8s
+      app.kubernetes.io/component: master
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spark
+        app.kubernetes.io/instance: my-k8s
+        app.kubernetes.io/component: master
+    spec:
+      serviceAccountName: my-k8s-spark
+      affinity:
+        podAffinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: spark
+                    app.kubernetes.io/instance: my-k8s
+                    app.kubernetes.io/component: master
+                namespaces:
+                  - "default"
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+        nodeAffinity:
+      securityContext:
+        fsGroup: 1001
+        runAsGroup: 0
+        runAsUser: 1001
+        seLinuxOptions: {}
+      containers:
+        - name: spark-master
+          image: docker.io/bitnami/spark:3.3.0-debian-11-r15
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1001
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: cluster
+              containerPort: 7077
+          volumeMounts:
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: SPARK_MODE
+              value: "master"
+            - name: SPARK_DAEMON_MEMORY
+              value: ""
+            - name: SPARK_MASTER_PORT
+              value: "7077"
+            - name: SPARK_MASTER_WEBUI_PORT
+              value: "8080"
+          envFrom:
+          livenessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          readinessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            limits: {}
+            requests: {}
+      volumes:
+---
+# Source: spark/templates/statefulset-worker.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-k8s-spark-worker
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: spark
+    app.kubernetes.io/instance: my-k8s
+    app.kubernetes.io/component: worker
+spec:
+  serviceName: my-k8s-spark-headless
+  replicas: 2
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spark
+      app.kubernetes.io/instance: my-k8s
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spark
+        app.kubernetes.io/instance: my-k8s
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: my-k8s-spark
+      affinity:
+        podAffinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: spark
+                    app.kubernetes.io/instance: my-k8s
+                    app.kubernetes.io/component: worker
+                namespaces:
+                  - "default"
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+        nodeAffinity:
+      securityContext:
+        fsGroup: 1001
+        runAsGroup: 0
+        runAsUser: 1001
+        seLinuxOptions: {}
+      containers:
+        - name: spark-worker
+          image: docker.io/bitnami/spark:3.3.0-debian-11-r15
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1001
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+          env:
+            - name: SPARK_MODE
+              value: "worker"
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: SPARK_DAEMON_MEMORY
+              value: ""
+            ## There are some environment variables whose existence needs
+            ## to be checked because Spark checks if they are null instead of an
+            ## empty string
+            - name: SPARK_WORKER_WEBUI_PORT
+              value: "8080"
+            - name: SPARK_DAEMON_JAVA_OPTS
+              value: ""
+            - name: SPARK_MASTER_URL
+              value: spark://my-k8s-spark-master-svc:7077
+            # If you use a custom properties file, it must be loaded using a ConfigMap
+            - name: SPARK_WORKER_OPTS
+              value: ""
+          envFrom:
+          livenessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          readinessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          startupProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            limits: {}
+            requests: {}
+      volumes:
