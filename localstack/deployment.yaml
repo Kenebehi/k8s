@@ -1,0 +1,137 @@
+---
+# NOTES:
+# 1. Get the application URL by running these commands:
+#   export NODE_PORT=$(kubectl get --namespace default -o jsonpath="{.spec.ports[0].nodePort}" services localstack-k8s)
+#   export NODE_IP=$(kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}")
+#   echo http://$NODE_IP:$NODE_PORT
+
+---
+# Source: localstack/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "localstack-k8s-test-connection"
+  labels:
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack-k8s
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  containers:
+    - name: wget-edge
+      image: busybox
+      command: ['wget']
+      args: ['localstack-k8s:4566/health']
+    - name: wget-es
+      image: busybox
+      command: ['wget']
+      args: ['localstack-k8s:4571/health']
+  restartPolicy: Never
+---
+# Source: localstack/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: localstack-k8s
+  namespace: default
+  labels:
+    
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack-k8s
+    app.kubernetes.io/version: "latest"
+    
+  annotations:
+---
+# Source: localstack/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack-k8s
+  namespace: default
+  labels:
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack-k8s
+    app.kubernetes.io/version: "latest" 
+  annotations:
+spec:
+  type: NodePort
+  externalTrafficPolicy: 
+  ports:
+    - name: edge
+      port: 4566
+      targetPort: 4566
+      nodePort: 31566
+    - name: es
+      port: 4571
+      targetPort: 4571
+      nodePort: 31571
+  selector:
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack-k8s
+---
+# Source: localstack/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack-k8s
+  namespace: default
+  labels:
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack-k8s
+    app.kubernetes.io/version: "latest"
+  annotations:
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: localstack
+      app.kubernetes.io/instance: localstack-k8s
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: localstack
+        app.kubernetes.io/instance: localstack-k8s
+    spec:
+      serviceAccountName: localstack-k8s
+      securityContext:
+        {}
+      containers:
+        - name: localstack
+          securityContext:
+            {}
+          image: "localstack/localstack:latest"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: edge
+              containerPort: 4566
+              protocol: TCP
+            - name: es
+              containerPort: 4571
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+            httpGet:
+              path: /health
+              port: edge
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+            httpGet:
+              path: /health
+              port: edge
+          resources:
+            {}
+          env:
+            - name: DEBUG
+              value: "0"
+      volumes:
