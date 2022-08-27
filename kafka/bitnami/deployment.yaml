@@ -9,7 +9,6 @@ metadata:
     app.kubernetes.io/name: kafka
     app.kubernetes.io/instance: my-kafka
     app.kubernetes.io/component: kafka
-  annotations:
 automountServiceAccountToken: true
 ---
 # Source: kafka/charts/zookeeper/templates/scripts-configmap.yaml
@@ -22,9 +21,9 @@ metadata:
     app.kubernetes.io/name: zookeeper
     app.kubernetes.io/instance: my-kafka
     app.kubernetes.io/component: zookeeper
-data:mymy
-  init-certs.sh: |-
-    #!/bin/bash
+# data:mymy
+#   init-certs.sh: |-
+#     #!/bin/bash
   setup.sh: |-
     #!/bin/bash
 
