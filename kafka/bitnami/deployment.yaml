@@ -1,29 +1,65 @@
+
+# NOTES:
+# CHART NAME: kafka
+# CHART VERSION: 18.3.0
+# APP VERSION: 3.2.1
+
+# ** Please be patient while the chart is being deployed **
+
+# Kafka can be accessed by consumers via port 9092 on the following DNS name from within your cluster:
+
+#     k8s-kafka.default.svc.cluster.local
+
+# Each Kafka broker can be accessed by producers via port 9092 on the following DNS name(s) from within your cluster:
+
+#     k8s-kafka-0.k8s-kafka-headless.default.svc.cluster.local:9092
+
+# To create a pod that you can use as a Kafka client run the following commands:
+
+#     kubectl run k8s-kafka-client --restart='Never' --image docker.io/bitnami/kafka:3.2.1-debian-11-r4 --namespace default --command -- sleep infinity
+#     kubectl exec --tty -i k8s-kafka-client --namespace default -- bash
+
+#     PRODUCER:
+#         kafka-console-producer.sh --broker-list k8s-kafka-0.k8s-kafka-headless.default.svc.cluster.local:9092 --topic test
+#     kafka-console-producer.sh --broker-list k8s-kafka-0.k8s-kafka-headless.default.svc.cluster.local:9092 --topic tweets --property 'key.separator=|'   --property 'parse.key=true'
+#      kafka-console-producer --bootstrap-server localhost:9092 --topic tweets --property 'parse.key=true' --property 'key.separator=|' < /data/inputs.txt
+#     CONSUMER:
+#         kafka-console-consumer.sh \
+            
+#             --bootstrap-server k8s-kafka.default.svc.cluster.local:9092 \
+#             --topic test \
+#             --from-beginning
+
+#          kafka-console-consumer.sh --bootstrap-server k8s-kafka.default.svc.cluster.local:9092 --topic tweets --from-beginning --property print.key=true
+
 ---
 # Source: kafka/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: my-kafka
+  name: k8s-kafka
   namespace: "default"
   labels:
     app.kubernetes.io/name: kafka
-    app.kubernetes.io/instance: my-kafka
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: kafka
+  annotations:
 automountServiceAccountToken: true
 ---
 # Source: kafka/charts/zookeeper/templates/scripts-configmap.yaml
-apiVersion: v1my
+apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: my-kafka-zookeeper-scripts
+  name: k8s-kafka-zookeeper-scripts
   namespace: default
   labels:
     app.kubernetes.io/name: zookeeper
-    app.kubernetes.io/instance: my-kafka
+    
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: zookeeper
-# data:mymy
-#   init-certs.sh: |-
-#     #!/bin/bash
+data:
+  init-certs.sh: |-
+    #!/bin/bash
   setup.sh: |-
     #!/bin/bash
 
@@ -48,23 +84,23 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: my-kafka-scripts
+  name: k8s-kafka-scripts
   namespace: "default"
   labels:
     app.kubernetes.io/name: kafka
-    
-    app.kubernetes.io/instance: my-kafka
-    
+    app.kubernetes.io/instance: k8s-kafka
 data:
   setup.sh: |-
     #!/bin/bash
 
-    ID="${MY_POD_NAME#"my-kafka-"}"
+    ID="${MY_POD_NAME#"k8s-kafka-"}"
     if [[ -f "/bitnami/kafka/data/meta.properties" ]]; then
-        export KAFKA_CFG_BROKER_ID="$(grep "broker.id" /bitnami/kafka/data/meta.properties | awk -F '=' '{print $2}')"
+        export KAFKA_CFG_BROKER_ID="$(grep "broker.id" "/bitnami/kafka/data/meta.properties" | awk -F '=' '{print $2}')"
     else
         export KAFKA_CFG_BROKER_ID="$((ID + 0))"
     fi
+
+    # Configure zookeeper client
 
     exec /entrypoint.sh /run.sh
 ---
@@ -72,11 +108,11 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-kafka-zookeeper-headless
+  name: k8s-kafka-zookeeper-headless
   namespace: default
   labels:
     app.kubernetes.io/name: zookeeper
-    app.kubernetes.io/instance: my-kafka
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: zookeeper
 spec:
   type: ClusterIP
@@ -94,20 +130,18 @@ spec:
       targetPort: election
   selector:
     app.kubernetes.io/name: zookeeper
-    app.kubernetes.io/instance: my-kafka
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: zookeeper
 ---
 # Source: kafka/charts/zookeeper/templates/svc.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-kafka-zookeeper
+  name: k8s-kafka-zookeeper
   namespace: default
   labels:
     app.kubernetes.io/name: zookeeper
-    
-    app.kubernetes.io/instance: my-kafka
-    
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: zookeeper
 spec:
   type: ClusterIP
@@ -125,20 +159,18 @@ spec:
       targetPort: election
   selector:
     app.kubernetes.io/name: zookeeper
-    app.kubernetes.io/instance: my-kafka
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: zookeeper
 ---
 # Source: kafka/templates/svc-headless.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-kafka-headless
+  name: k8s-kafka-headless
   namespace: "default"
   labels:
     app.kubernetes.io/name: kafka
-    
-    app.kubernetes.io/instance: my-kafka
-    
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: kafka
 spec:
   type: ClusterIP
@@ -154,20 +186,18 @@ spec:
       targetPort: kafka-internal
   selector:
     app.kubernetes.io/name: kafka
-    app.kubernetes.io/instance: my-kafka
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: kafka
 ---
 # Source: kafka/templates/svc.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-kafka
+  name: k8s-kafka
   namespace: "default"
   labels:
     app.kubernetes.io/name: kafka
-    
-    app.kubernetes.io/instance: my-kafka
-    
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: kafka
 spec:
   type: ClusterIP
@@ -180,20 +210,18 @@ spec:
       nodePort: null
   selector:
     app.kubernetes.io/name: kafka
-    app.kubernetes.io/instance: my-kafka
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: kafka
 ---
 # Source: kafka/charts/zookeeper/templates/statefulset.yaml
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: my-kafka-zookeeper
+  name: k8s-kafka-zookeeper
   namespace: default
   labels:
     app.kubernetes.io/name: zookeeper
-    
-    app.kubernetes.io/instance: my-kafka
-    
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: zookeeper
     role: zookeeper
 spec:
@@ -202,9 +230,9 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: zookeeper
-      app.kubernetes.io/instance: my-kafka
+      app.kubernetes.io/instance: k8s-kafka
       app.kubernetes.io/component: zookeeper
-  serviceName: my-kafka-zookeeper-headless
+  serviceName: k8s-kafka-zookeeper-headless
   updateStrategy:
     rollingUpdate: {}
     type: RollingUpdate
@@ -213,36 +241,31 @@ spec:
       annotations:
       labels:
         app.kubernetes.io/name: zookeeper
-        
-        app.kubernetes.io/instance: my-kafka
-        
+        app.kubernetes.io/instance: k8s-kafka
         app.kubernetes.io/component: zookeeper
     spec:
       serviceAccountName: default
-      
       affinity:
         podAffinity:
-          
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:
                 labelSelector:
                   matchLabels:
                     app.kubernetes.io/name: zookeeper
-                    app.kubernetes.io/instance: my-kafka
+                    app.kubernetes.io/instance: k8s-kafka
                     app.kubernetes.io/component: zookeeper
                 namespaces:
                   - "default"
                 topologyKey: kubernetes.io/hostname
               weight: 1
         nodeAffinity:
-          
       securityContext:
         fsGroup: 1001
       initContainers:
       containers:
         - name: zookeeper
-          image: docker.io/bitnami/zookeeper:3.8.0-debian-10-r37
+          image: docker.io/bitnami/zookeeper:3.8.0-debian-11-r30
           imagePullPolicy: "IfNotPresent"
           securityContext:
             runAsNonRoot: true
@@ -284,8 +307,10 @@ spec:
             - name: ZOO_MAX_SESSION_TIMEOUT
               value: "40000"
             - name: ZOO_SERVERS
-              value: my-kafka-zookeeper-0.my-kafka-zookeeper-headless.default.svc.cluster.local:2888:3888::1 
+              value: k8s-kafka-zookeeper-0.k8s-kafka-zookeeper-headless.default.svc.cluster.local:2888:3888::1 
             - name: ZOO_ENABLE_AUTH
+              value: "no"
+            - name: ZOO_ENABLE_QUORUM_AUTH
               value: "no"
             - name: ZOO_HEAP_SIZE
               value: "1024"
@@ -330,7 +355,7 @@ spec:
       volumes:
         - name: scripts
           configMap:
-            name: my-kafka-zookeeper-scripts
+            name: k8s-kafka-zookeeper-scripts
             defaultMode: 0755
   volumeClaimTemplates:
     - metadata:
@@ -347,11 +372,11 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: my-kafka
+  name: k8s-kafka
   namespace: "default"
   labels:
     app.kubernetes.io/name: kafka
-    app.kubernetes.io/instance: my-kafka
+    app.kubernetes.io/instance: k8s-kafka
     app.kubernetes.io/component: kafka
 spec:
   podManagementPolicy: Parallel
@@ -359,9 +384,9 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: kafka
-      app.kubernetes.io/instance: my-kafka
+      app.kubernetes.io/instance: k8s-kafka
       app.kubernetes.io/component: kafka
-  serviceName: my-kafka-headless
+  serviceName: k8s-kafka-headless
   updateStrategy:
     rollingUpdate: {}
     type: RollingUpdate
@@ -369,38 +394,33 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: kafka
-        
-        app.kubernetes.io/instance: my-kafka
-        
+        app.kubernetes.io/instance: k8s-kafka
         app.kubernetes.io/component: kafka
       annotations:
     spec:
-      
       hostNetwork: false
       hostIPC: false
       affinity:
         podAffinity:
-          
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:
                 labelSelector:
                   matchLabels:
                     app.kubernetes.io/name: kafka
-                    app.kubernetes.io/instance: my-kafka
+                    app.kubernetes.io/instance: k8s-kafka
                     app.kubernetes.io/component: kafka
                 namespaces:
                   - "default"
                 topologyKey: kubernetes.io/hostname
               weight: 1
         nodeAffinity:
-          
       securityContext:
         fsGroup: 1001
-      serviceAccountName: my-kafka
+      serviceAccountName: k8s-kafka
       containers:
         - name: kafka
-          image: docker.io/bitnami/kafka:3.1.0-debian-10-r89
+          image: docker.io/bitnami/kafka:3.2.1-debian-11-r4
           imagePullPolicy: "IfNotPresent"
           securityContext:
             runAsNonRoot: true
@@ -419,7 +439,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: KAFKA_CFG_ZOOKEEPER_CONNECT
-              value: "my-kafka-zookeeper"
+              value: "k8s-kafka-zookeeper"
             - name: KAFKA_INTER_BROKER_LISTENER_NAME
               value: "INTERNAL"
             - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
@@ -427,9 +447,11 @@ spec:
             - name: KAFKA_CFG_LISTENERS
               value: "INTERNAL://:9093,CLIENT://:9092"
             - name: KAFKA_CFG_ADVERTISED_LISTENERS
-              value: "INTERNAL://$(MY_POD_NAME).my-kafka-headless.default.svc.cluster.local:9093,CLIENT://$(MY_POD_NAME).my-kafka-headless.default.svc.cluster.local:9092"
+              value: "INTERNAL://$(MY_POD_NAME).k8s-kafka-headless.default.svc.cluster.local:9093,CLIENT://$(MY_POD_NAME).k8s-kafka-headless.default.svc.cluster.local:9092"
             - name: ALLOW_PLAINTEXT_LISTENER
               value: "yes"
+            - name: KAFKA_ZOOKEEPER_PROTOCOL
+              value: PLAINTEXT
             - name: KAFKA_VOLUME_DIR
               value: "/bitnami/kafka"
             - name: KAFKA_LOG_DIR
@@ -521,7 +543,7 @@ spec:
       volumes:
         - name: scripts
           configMap:
-            name: my-kafka-scripts
+            name: k8s-kafka-scripts
             defaultMode: 0755
         - name: logs
           emptyDir: {}
