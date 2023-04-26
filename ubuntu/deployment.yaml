@@ -10,7 +10,7 @@ spec:
   - image: ubuntu
     command:
       - "sleep"
-      - "604800"
+      - "604801"
     imagePullPolicy: IfNotPresent
     name: ubuntu
   restartPolicy: Always
